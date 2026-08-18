@@ -120,19 +120,22 @@ The default region is controlled by `var.location` and defaults to `southeastasi
 
 
 
-## Terrafrom State File
+## Terraform State File
 
 A common structure is:
 
+```text
 Resource Group: rg-terraform-state
 └── Storage Account: sttfstateprod001
     └── Container: tfstate
         ├── dev/azure-webapp.tfstate
         ├── uat/azure-webapp.tfstate
         └── prod/azure-webapp.tfstate
+```
 
 Then configure Terraform like this:
 
+```hcl
 terraform {
   backend "azurerm" {
     resource_group_name  = "rg-terraform-state"
@@ -141,40 +144,49 @@ terraform {
     key                  = "dev/azure-webapp.tfstate"
   }
 }
+```
 
 Azure Blob Storage is a good fit because the state is remote, encrypted at rest, and Blob Storage supports locking to help prevent simultaneous Terraform runs from corrupting state. Microsoft specifically recommends remote Azure Storage for Terraform state on Azure.
 
-For your setup with Terraform workspaces, I’d be careful about mixing workspace logic and hardcoded state paths. A cleaner production pattern is often to keep each environment’s state clearly isolated, for example:
+For a cleaner production pattern, keep each environment's state clearly isolated, for example:
 
+```text
 tfstate/
 ├── azure-webapp-dev.tfstate
 ├── azure-webapp-uat.tfstate
 └── azure-webapp-prod.tfstate
+```
 
-or separate backend config files:
+Or use separate backend config files:
 
+```text
 backend/
 ├── dev.hcl
 ├── uat.hcl
 └── prod.hcl
+```
 
-Example:
+Example backend configuration:
 
+```hcl
 # backend/dev.hcl
-
-
 resource_group_name  = "rg-terraform-state"
 storage_account_name = "sttfstateprod001"
 container_name       = "tfstate"
 key                  = "azure-webapp/dev.tfstate"
+```
 
 Then initialize with:
 
+```bash
 terraform init -backend-config=backend/dev.hcl
+```
 
-and for UAT:
+For UAT:
 
+```bash
 terraform init -reconfigure \
   -backend-config=backend/uat.hcl
+```
 
-I would not store terraform.tfstate in Git. State can contain sensitive values, resource IDs, outputs, and configuration details, so keeping it in the repository is a security and concurrency risk. Microsoft also recommends remote state specifically because local state is not ideal for collaborative workflows.
+I would not store `terraform.tfstate` in Git. State can contain sensitive values, resource IDs, outputs, and configuration details, so keeping it in the repository is a security and concurrency risk. Microsoft also recommends remote state specifically because local state is not ideal for collaborative workflows.
