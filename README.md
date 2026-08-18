@@ -23,15 +23,28 @@ make show-workspace
 ### Plan for a workspace
 
 The plan file is named using the workspace name, for example `dev.tfplan`.
+The Makefile automatically selects the matching environment tfvars file from the `env/` folder using the current workspace name.
 
 ```bash
 make plan WORKSPACE=dev
+make plan WORKSPACE=uat
+make plan WORKSPACE=prod
 ```
 
-This saves the plan to:
+This reads:
+
+```text
+env/dev.tfvars
+env/uat.tfvars
+env/prod.tfvars
+```
+
+and writes the plan to:
 
 ```bash
-dev.tfplan
+plan/dev.tfplan
+plan/uat.tfplan
+plan/prod.tfplan
 ```
 
 ### Apply a saved workspace plan
@@ -43,7 +56,7 @@ make apply WORKSPACE=dev
 This applies the matching file:
 
 ```bash
-dev.tfplan
+plan/dev.tfplan
 ```
 
 ### Destroy the current workspace environment
@@ -120,44 +133,47 @@ The default region is controlled by `var.location` and defaults to `southeastasi
 
 
 
-## Terraform State File
+## Production deployment checklist
 
-A common structure is:
+Use this checklist before deploying to each environment.
 
-```text
-Resource Group: rg-terraform-state
-└── Storage Account: sttfstateprod001
-    └── Container: tfstate
-        ├── dev/azure-webapp.tfstate
-        ├── uat/azure-webapp.tfstate
-        └── prod/azure-webapp.tfstate
-```
+### 1) Prepare environment config
 
-Then configure Terraform like this:
+Create or update the environment-specific variable files under the `env/` folder:
+
+- `env/dev.tfvars`
+- `env/uat.tfvars`
+- `env/prod.tfvars`
+
+Example:
 
 ```hcl
-terraform {
-  backend "azurerm" {
-    resource_group_name  = "rg-terraform-state"
-    storage_account_name = "sttfstateprod001"
-    container_name       = "tfstate"
-    key                  = "dev/azure-webapp.tfstate"
-  }
+location = "southeastasia"
+
+tags = {
+  Environment = "dev"
+  Owner       = "platform-team"
+  Application = "azure-webapp"
+  ManagedBy   = "terraform"
+  CostCenter  = "IT-001"
 }
+
+projects = [
+  {
+    name         = "car"
+    sku_tier     = "Basic"
+    sku_size     = "B1"
+    docker_image = "htmldemo/car:latest"
+    app_settings = {
+      ENV = "dev"
+    }
+  }
+]
 ```
 
-Azure Blob Storage is a good fit because the state is remote, encrypted at rest, and Blob Storage supports locking to help prevent simultaneous Terraform runs from corrupting state. Microsoft specifically recommends remote Azure Storage for Terraform state on Azure.
+### 2) Prepare remote state backend
 
-For a cleaner production pattern, keep each environment's state clearly isolated, for example:
-
-```text
-tfstate/
-├── azure-webapp-dev.tfstate
-├── azure-webapp-uat.tfstate
-└── azure-webapp-prod.tfstate
-```
-
-Or use separate backend config files:
+Use environment-specific backend config files:
 
 ```text
 backend/
@@ -166,27 +182,78 @@ backend/
 └── prod.hcl
 ```
 
-Example backend configuration:
+Example backend config:
 
 ```hcl
-# backend/dev.hcl
 resource_group_name  = "rg-terraform-state"
 storage_account_name = "sttfstateprod001"
 container_name       = "tfstate"
-key                  = "azure-webapp/dev.tfstate"
+key                  = "azure-webapp-dev.tfstate"
 ```
 
-Then initialize with:
+### 3) Initialize and validate
 
 ```bash
-terraform init -backend-config=backend/dev.hcl
+terraform init -reconfigure -backend-config=backend/dev.hcl
+terraform validate
+terraform plan -var-file=env/dev.tfvars
 ```
 
-For UAT:
+For UAT and prod:
 
 ```bash
-terraform init -reconfigure \
-  -backend-config=backend/uat.hcl
+terraform init -reconfigure -backend-config=backend/uat.hcl
+terraform plan -var-file=env/uat.tfvars
+
+terraform init -reconfigure -backend-config=backend/prod.hcl
+terraform plan -var-file=env/prod.tfvars
 ```
 
-I would not store `terraform.tfstate` in Git. State can contain sensitive values, resource IDs, outputs, and configuration details, so keeping it in the repository is a security and concurrency risk. Microsoft also recommends remote state specifically because local state is not ideal for collaborative workflows.
+### 4) Deploy with workspace separation
+
+```bash
+make workspace WORKSPACE=dev
+make plan WORKSPACE=dev
+make apply WORKSPACE=dev
+```
+
+### 5) Post-deployment checks
+
+- Confirm Azure resource group and app service names match the environment
+- Confirm tags exist for `Environment`, `Owner`, `Application`, and `ManagedBy`
+- Confirm Docker image is the intended version
+- Confirm app settings and secrets are correct
+- Verify state is stored in the remote backend, not local disk
+
+## Terraform State File
+
+For production-grade deployments, Terraform state should live in a remote Azure Storage backend instead of local files. This keeps state secure, shared, and protected from accidental corruption during concurrent runs.
+
+A common structure is:
+
+```text
+Resource Group: rg-terraform-state
+└── Storage Account: sttfstateprod001
+    └── Container: tfstate
+        ├── azure-webapp-dev.tfstate
+        ├── azure-webapp-uat.tfstate
+        └── azure-webapp-prod.tfstate
+```
+
+The backend is configured in the root Terraform definition:
+
+```hcl
+terraform {
+  backend "azurerm" {}
+}
+```
+
+The project Makefile includes the same workflow:
+
+```bash
+make init-backend ENV=dev
+make init-backend ENV=uat
+make init-backend ENV=prod
+```
+
+I would not store `terraform.tfstate` in Git. State can contain sensitive values, resource IDs, outputs, and configuration details. Remote state in Azure Blob Storage is the recommended pattern for collaborative and production-safe Terraform workflows.

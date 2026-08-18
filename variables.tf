@@ -1,5 +1,5 @@
 variable "projects" {
-  description = "List of projects to deploy. Each item is an object with keys: name, location, resource_group_name, create_resource_group, sku_tier, sku_size, linux_fx_version, app_settings, run_from_package, docker_image, and docker_registry."
+  description = "List of deployment projects. Current deployment model is Docker-based, but legacy package fields remain for compatibility."
   type = list(object({
     name                  = string
     location              = optional(string)
@@ -14,51 +14,76 @@ variable "projects" {
     docker_registry       = optional(map(string))
   }))
   default = [
-    # {
-    #   name             = "example-app-1"
-    #   sku_tier         = "Basic"
-    #   sku_size         = "B1"
-    #   linux_fx_version = "NODE|16-lts"
-    #   app_settings = {
-    #     "ENV" = "dev"
-    #   }
-    #   run_from_package = true
-    # },
-    # {
-    #   name             = "example-app-2"
-    #   sku_tier         = "Basic"
-    #   sku_size         = "B1"
-    #   linux_fx_version = "DOTNETCORE|7.0"
-    #   app_settings = {
-    #     "ENV" = "dev"
-    #   }
-    #   run_from_package = true
-    # }
     {
-      name             = "car"
-      sku_tier         = "Basic"
-      sku_size         = "B1"
-      docker_image     = "htmldemo/car:latest"
-      run_from_package = false
+      name         = "car"
+      sku_tier     = "Basic"
+      sku_size     = "B1"
+      docker_image = "htmldemo/car:latest"
     },
     {
-      name             = "yoga"
-      sku_tier         = "Basic"
-      sku_size         = "B1"
-      docker_image     = "htmldemo/yoga:0.0.1"
-      run_from_package = false
+      name         = "yoga"
+      sku_tier     = "Basic"
+      sku_size     = "B1"
+      docker_image = "htmldemo/yoga:0.0.1"
     }
   ]
+
+  validation {
+    condition     = length(var.projects) > 0
+    error_message = "At least one project must be defined."
+  }
+
+  validation {
+    condition     = length(distinct([for project in var.projects : lower(trimspace(project.name))])) == length(var.projects)
+    error_message = "Project names must be unique."
+  }
+
+  validation {
+    condition = alltrue([
+      for project in var.projects :
+      length(trimspace(project.name)) > 0 && (
+        length(trimspace(try(project.docker_image, ""))) > 0 ||
+        length(trimspace(try(project.linux_fx_version, ""))) > 0
+      )
+    ])
+    error_message = "Each project must include a non-empty name and either a docker_image or linux_fx_version value."
+  }
 }
 
 variable "location" {
-  description = "Default Azure region to deploy resources into. Use the Azure region code. Default: Singapore (southeastasia)."
+  description = "Default Azure region for all resources."
   type        = string
   default     = "southeastasia"
+
+  validation {
+    condition     = length(trimspace(var.location)) > 0
+    error_message = "The Azure region cannot be empty."
+  }
 }
 
 variable "tags" {
-  description = "Common tags applied to created resources"
+  description = "Production-level tag policy applied to created resources. Required keys: Environment, Owner, Application, ManagedBy."
   type        = map(string)
   default     = {}
+
+  validation {
+    condition = alltrue([
+      for key in ["Environment", "Owner", "Application", "ManagedBy"] :
+      contains(keys(var.tags), key) && length(trimspace(try(var.tags[key], ""))) > 0
+    ])
+    error_message = "Tags must include non-empty values for Environment, Owner, Application, and ManagedBy."
+  }
+
+  validation {
+    condition = alltrue([
+      for key, value in var.tags :
+      length(trimspace(key)) > 0 && length(trimspace(value)) > 0
+    ])
+    error_message = "Tag keys and values must be non-empty strings."
+  }
+
+  validation {
+    condition     = contains(["dev", "uat", "prod"], lower(trimspace(try(var.tags["Environment"], ""))))
+    error_message = "The Environment tag must be one of: dev, uat, prod."
+  }
 }
