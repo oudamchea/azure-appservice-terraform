@@ -59,8 +59,14 @@ apply:
 	$(TF) apply "$$PLAN_FILE"
 
 destroy:
+	@if [ -z "$(WORKSPACE)" ]; then WORKSPACE=$$(terraform workspace show 2>/dev/null || echo default); fi
 	@if [ ! -z "$(WORKSPACE)" ]; then $(MAKE) workspace WORKSPACE=$(WORKSPACE); fi
-	$(TF) destroy
+	@CURRENT_WORKSPACE=$$(terraform workspace show 2>/dev/null || echo default); \
+	TFVARS_FILE="env/$${CURRENT_WORKSPACE}.tfvars"; \
+	if [ ! -f "$$TFVARS_FILE" ]; then echo "Missing tfvars file: $$TFVARS_FILE"; exit 1; fi; \
+	echo "Destroying workspace: $$CURRENT_WORKSPACE"; \
+	echo "Using tfvars: $$TFVARS_FILE"; \
+	$(TF) destroy -var-file="$$TFVARS_FILE"
 
 fmt:
 	$(TF) fmt -recursive
