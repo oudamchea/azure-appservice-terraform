@@ -15,7 +15,7 @@ locals {
 }
 
 resource "azurerm_resource_group" "rg" {
-  count    = var.create_resource_group ? 1 : 0
+  count    = local.create_rg ? 1 : 0
   name     = local.rg_name
   location = var.location
   tags     = var.tags
@@ -24,7 +24,7 @@ resource "azurerm_resource_group" "rg" {
 resource "azurerm_service_plan" "plan" {
   name                = local.plan_name
   location            = var.location
-  resource_group_name = var.create_resource_group ? azurerm_resource_group.rg[0].name : var.resource_group_name
+  resource_group_name = local.create_rg ? azurerm_resource_group.rg[0].name : var.resource_group_name
   os_type             = "Linux"
   sku_name            = var.sku_size
   tags                = var.tags
@@ -33,7 +33,7 @@ resource "azurerm_service_plan" "plan" {
 resource "azurerm_linux_web_app" "app" {
   name                = local.app_name
   location            = var.location
-  resource_group_name = var.create_resource_group ? azurerm_resource_group.rg[0].name : var.resource_group_name
+  resource_group_name = local.create_rg ? azurerm_resource_group.rg[0].name : var.resource_group_name
   service_plan_id     = azurerm_service_plan.plan.id
 
   site_config {

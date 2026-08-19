@@ -1,5 +1,20 @@
 location = "southeastasia"
 
+projects = [
+  {
+    name         = "car"
+    sku_tier     = "Standard"
+    sku_size     = "B2"
+    docker_image = "htmldemo/car:latest"
+  },
+  {
+    name         = "yoga"
+    sku_tier     = "Standard"
+    sku_size     = "B2"
+    docker_image = "htmldemo/yoga:0.0.1"
+  }
+]
+
 tags = {
   Environment = "prod"
   Owner       = "platform-team"

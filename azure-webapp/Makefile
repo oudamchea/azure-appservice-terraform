@@ -15,6 +15,8 @@ help:
 	@echo "  make destroy [WORKSPACE=dev]  # terraform destroy (selects workspace if provided)"
 	@echo "  make fmt                      # terraform fmt -recursive"
 	@echo "  make validate                 # terraform validate"
+	@echo ""
+	@echo "Note: Use 'cd backend-bootstrap && make' for backend infrastructure management"
 
 init:
 	$(TF) init

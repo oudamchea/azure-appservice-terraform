@@ -7,10 +7,10 @@ module "webapp" {
   source   = "./modules/webapp"
 
   project_name = each.value.name
-  location     = length(trimspace(try(each.value.location, ""))) > 0 ? each.value.location : var.location
+  location     = each.value.location != null ? each.value.location : var.location
 
   create_resource_group = try(each.value.create_resource_group, true)
-  resource_group_name   = length(trimspace(try(each.value.resource_group_name, ""))) > 0 ? each.value.resource_group_name : "${lower(terraform.workspace)}-${each.value.name}-rg"
+  resource_group_name   = each.value.resource_group_name != null && length(trimspace(each.value.resource_group_name)) > 0 ? each.value.resource_group_name : "${lower(terraform.workspace)}-${each.value.name}-rg"
 
   sku_tier = try(each.value.sku_tier, "Standard")
   sku_size = try(each.value.sku_size, "B1")
