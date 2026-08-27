@@ -5,6 +5,7 @@ variable "projects" {
     location              = optional(string)
     resource_group_name   = optional(string)
     create_resource_group = optional(bool)
+    os_type               = optional(string)
     sku_tier              = optional(string)
     sku_size              = optional(string)
     linux_fx_version      = optional(string)
@@ -24,30 +25,34 @@ variable "projects" {
     #   }
     #   run_from_package = true
     # },
+    {
+      name                  = "dashboard-vaccine-routine"
+      resource_group_name   = "Cam-Vaccine-Routine-UAT-RG"
+      create_resource_group = false
+      os_type               = "Windows"
+      sku_tier              = "Basic"
+      sku_size              = "B1"
+      # Azure uses v4.0 as the API value for .NET Framework 4.8.
+      linux_fx_version = "DOTNET|v4.0"
+      app_settings = {
+        "ENV" = "dev"
+      }
+      run_from_package = true
+    }
     # {
-    #   name             = "example-app-2"
+    #   name             = "car"
     #   sku_tier         = "Basic"
     #   sku_size         = "B1"
-    #   linux_fx_version = "DOTNETCORE|7.0"
-    #   app_settings = {
-    #     "ENV" = "dev"
-    #   }
-    #   run_from_package = true
+    #   docker_image     = "htmldemo/car:latest"
+    #   run_from_package = false
+    # },
+    # {
+    #   name             = "yoga"
+    #   sku_tier         = "Basic"
+    #   sku_size         = "B1"
+    #   docker_image     = "htmldemo/yoga:0.0.1"
+    #   run_from_package = false
     # }
-    {
-      name             = "car"
-      sku_tier         = "Basic"
-      sku_size         = "B1"
-      docker_image     = "htmldemo/car:latest"
-      run_from_package = false
-    },
-    {
-      name             = "yoga"
-      sku_tier         = "Basic"
-      sku_size         = "B1"
-      docker_image     = "htmldemo/yoga:0.0.1"
-      run_from_package = false
-    }
   ]
 }
 

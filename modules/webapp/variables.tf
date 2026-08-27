@@ -29,6 +29,17 @@ variable "sku_size" {
   default = "S1"
 }
 
+variable "os_type" {
+  type        = string
+  description = "App Service operating system: Linux or Windows"
+  default     = "Linux"
+
+  validation {
+    condition     = contains(["linux", "windows"], lower(var.os_type))
+    error_message = "os_type must be Linux or Windows."
+  }
+}
+
 variable "linux_fx_version" {
   type    = string
   default = ""
